@@ -13,6 +13,7 @@ type PageResponse struct {
 	Url        string
 	StatusCode int
 	Data       []byte
+	Depth      int
 }
 
 type Scraper struct {
@@ -72,6 +73,7 @@ func (s *Scraper) Scrape() error {
 			Url:        r.Request.URL.String(),
 			Data:       r.Body,
 			StatusCode: r.StatusCode,
+			Depth:      r.Request.Depth,
 		}
 		s.waitGroup.Add(1)
 		go s.processPage(p)
