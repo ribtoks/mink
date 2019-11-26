@@ -4,13 +4,15 @@ import (
 	"log"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/gocolly/colly"
 )
 
-type LinkPair struct {
-	Url  string
-	Link string
+type PageResponse struct {
+	Url        string
+	StatusCode int
+	Data       []byte
 }
 
 type Scraper struct {
@@ -19,7 +21,10 @@ type Scraper struct {
 	Recursively bool
 	PrintLogs   bool
 	Async       bool
-	Links       chan *LinkPair
+	pages       chan *PageResponse
+	waitGroup   sync.WaitGroup
+	stats       map[string]*PageStats
+	mutex       *sync.Mutex
 }
 
 func prepareAllowedDomain(requestURL string) ([]string, error) {
@@ -70,17 +75,22 @@ func (s *Scraper) Scrape(url string) error {
 	c.AllowedDomains = allowedDomains
 	s.Website = trimProtocol(s.Website)
 
+	c.OnResponse(func(r *colly.Response) {
+		p := &PageResponse{
+			Url:        r.Request.URL.String(),
+			Data:       r.Body,
+			StatusCode: r.StatusCode,
+		}
+		go func(pp *PageResponse) {
+			s.waitGroup.Add(1)
+			s.pages <- pp
+		}(p)
+	})
+
 	// Find and visit all links
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		origin := e.Request.URL.String()
-		link := e.Attr("href")
-		go func(u, l string) {
-			s.Links <- &LinkPair{
-				Url:  u,
-				Link: l,
-			}
-		}(origin, link)
 		if s.Recursively {
+			link := e.Attr("href")
 			s.Log("visiting: ", link)
 			if err := e.Request.Visit(link); err != nil {
 				if err != colly.ErrAlreadyVisited {
@@ -90,9 +100,6 @@ func (s *Scraper) Scrape(url string) error {
 		}
 	})
 
-	c.OnScraped(func(response *colly.Response) {
-	})
-
 	// Start the scrape
 	if err := c.Visit(s.GetWebsite(true)); err != nil {
 		s.Log("error while visiting: ", err.Error())
@@ -100,5 +107,16 @@ func (s *Scraper) Scrape(url string) error {
 
 	// Wait for concurrent scrapes to finish
 	c.Wait()
+	// wait for page processing to finish
+	s.waitGroup.Wait()
+
 	return nil
+}
+
+func (s *Scraper) Report() []*PageStats {
+	result := make([]*PageStats, len(s.stats))
+	for _, v := range s.stats {
+		result = append(result, v)
+	}
+	return result
 }
