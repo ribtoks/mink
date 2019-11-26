@@ -8,16 +8,20 @@ import (
 	"github.com/gocolly/colly"
 )
 
+type LinkPair struct {
+	Url  string
+	Link string
+}
+
 type Scraper struct {
 	MaxDepth    int
 	Website     string
 	Recursively bool
 	PrintLogs   bool
 	Async       bool
-	Links       []string
+	Links       chan *LinkPair
 }
 
-// Trim the input domain to whitelist root
 func prepareAllowedDomain(requestURL string) ([]string, error) {
 	requestURL = "https://" + trimProtocol(requestURL)
 	u, err := url.ParseRequestURI(requestURL)
@@ -66,21 +70,26 @@ func (s *Scraper) Scrape(url string) error {
 	c.AllowedDomains = allowedDomains
 	s.Website = trimProtocol(s.Website)
 
-	if s.Recursively {
-		// Find and visit all links
-		c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-			link := e.Attr("href")
+	// Find and visit all links
+	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
+		origin := e.Request.URL.String()
+		link := e.Attr("href")
+		go func(u, l string) {
+			s.Links <- &LinkPair{
+				Url:  u,
+				Link: l,
+			}
+		}(origin, link)
+		if s.Recursively {
 			s.Log("visiting: ", link)
 			if err := e.Request.Visit(link); err != nil {
-				// Ignore already visited error, this appears too often
 				if err != colly.ErrAlreadyVisited {
 					s.Log("error while linking: ", err.Error())
 				}
 			}
-		})
-	}
+		}
+	})
 
-	// Parse emails on each downloaded page
 	c.OnScraped(func(response *colly.Response) {
 	})
 
