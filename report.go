@@ -13,15 +13,13 @@ type Reporter interface {
 	Render() error
 }
 
-func structToMap(i interface{}) map[string]string {
+func structToMap(ps *PageStats) map[string]string {
 	values := make(map[string]string)
-	iVal := reflect.ValueOf(i).Elem()
-	typ := iVal.Type()
-	for i := 0; i < iVal.NumField(); i++ {
-		f := iVal.Field(i)
-		// You ca use tags here...
-		// tag := typ.Field(i).Tag.Get("tagname")
-		// Convert each type into a string for the url.Values string map
+	s := reflect.ValueOf(ps).Elem()
+	typeOfT := s.Type()
+
+	for i := 0; i < s.NumField(); i++ {
+		f := s.Field(i)
 		var v string
 		switch f.Interface().(type) {
 		case int, int8, int16, int32, int64:
@@ -37,7 +35,7 @@ func structToMap(i interface{}) map[string]string {
 		case string:
 			v = f.String()
 		}
-		values[typ.Field(i).Name] = v
+		values[typeOfT.Field(i).Name] = v
 	}
 	return values
 }
@@ -50,12 +48,20 @@ func NewTableReporter() *TableReporter {
 	tr := &TableReporter{
 		table: tablewriter.NewWriter(os.Stdout),
 	}
+
+	statType := reflect.TypeOf(PageStats{})
+	header := make([]string, 0, statType.NumField())
+	for i := 0; i < statType.NumField(); i++ {
+		field := statType.Field(i)
+		header = append(header, field.Name)
+	}
+	tr.table.SetHeader(header)
 	return tr
 }
 
 func (tr *TableReporter) Append(ps *PageStats) {
 	m := structToMap(ps)
-	row := make([]string, len(m))
+	row := make([]string, 0, len(m))
 	for _, v := range m {
 		row = append(row, v)
 	}

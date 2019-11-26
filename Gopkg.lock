@@ -195,7 +195,9 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/PuerkitoBio/goquery",
     "github.com/gocolly/colly",
+    "github.com/gocolly/colly/debug",
     "github.com/microcosm-cc/bluemonday",
     "github.com/olekukonko/tablewriter",
   ]

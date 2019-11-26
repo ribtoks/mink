@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"os"
+	"sync"
 )
 
 func main() {
@@ -12,17 +13,21 @@ func main() {
 
 	for scanner.Scan() {
 		s := &Scraper{
+			Website:     scanner.Text(),
 			MaxDepth:    1,
 			Recursively: false,
 			PrintLogs:   true,
 			Async:       true,
-			pages:       make(chan *PageResponse),
+			mutex:       &sync.Mutex{},
+			stats:       make(map[string]*PageStats),
 		}
-		err := s.Scrape(scanner.Text())
+		err := s.Scrape()
 		if err != nil {
-			for _, r := range s.Report() {
-				reporter.Append(r)
-			}
+			s.Log("Error while scraping", s.Website)
+			continue
+		}
+		for _, r := range s.Report() {
+			reporter.Append(r)
 		}
 	}
 

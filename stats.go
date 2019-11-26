@@ -71,16 +71,17 @@ func extractLinks(document *goquery.Document) map[string]int {
 }
 
 func (s *Scraper) processPage(p *PageResponse) {
+	s.Log("Processing page", p.Url)
 	defer s.waitGroup.Done()
 	u, err := url.ParseRequestURI(p.Url)
 	if err != nil {
-		s.Log("Error parsing request url. ", err)
+		s.Log("Error parsing request url.", err)
 		return
 	}
 	buf := bytes.NewBuffer(p.Data)
 	document, err := goquery.NewDocumentFromReader(buf)
 	if err != nil {
-		s.Log("Error loading HTTP response body. ", err)
+		s.Log("Error loading HTTP response body.", err)
 		return
 	}
 
@@ -91,7 +92,7 @@ func (s *Scraper) processPage(p *PageResponse) {
 	for k, v := range links {
 		l, err := url.ParseRequestURI(k)
 		if err != nil {
-			s.Log("Error parsing on-page url. ", err)
+			s.Log("Error parsing on-page url.", err)
 			continue
 		}
 		if l.Hostname() == u.Hostname() {
@@ -105,10 +106,4 @@ func (s *Scraper) processPage(p *PageResponse) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.stats[p.Url] = ps
-}
-
-func (s *Scraper) processPages() {
-	for p := range s.pages {
-		go s.processPage(p)
-	}
 }
