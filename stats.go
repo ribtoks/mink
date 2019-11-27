@@ -53,22 +53,38 @@ func countWords(s string) int {
 	return nWords
 }
 
-func isRedirect(document *goquery.Document, url string) bool {
+func isRedirect(hostname string, document *goquery.Document) bool {
 	hasCanonicalLink := false
 	document.Find("link").Each(func(i int, s *goquery.Selection) {
 		if rel, _ := s.Attr("rel"); rel == "canonical" {
 			if href, exists := s.Attr("href"); exists {
-				hasCanonicalLink = href != url
+				if u, err := url.ParseRequestURI(href); err == nil {
+					hasCanonicalLink = hostname != u.Hostname()
+				}
 			}
 		}
 	})
 	return hasCanonicalLink
 }
 
-func Indexibility(statusCode int, url string, document *goquery.Document) string {
+func isNoIndex(document *goquery.Document) bool {
+	hasNoIndex := false
+	document.Find("meta").Each(func(i int, s *goquery.Selection) {
+		if name, _ := s.Attr("name"); name == "robots" {
+			if content, exists := s.Attr("content"); exists {
+				hasNoIndex = strings.Contains(content, "noindex") ||
+					strings.Contains(content, "follow") ||
+					strings.Contains(content, "disallow")
+			}
+		}
+	})
+	return hasNoIndex
+}
+
+func Indexibility(statusCode int, hostname string, document *goquery.Document) string {
 	indexable := statusCode/100 == 2
 	if indexable {
-		indexable = !isRedirect(document, url)
+		indexable = !isNoIndex(document) && !isRedirect(hostname, document)
 	}
 
 	if indexable {
@@ -156,7 +172,7 @@ func (s *Scraper) processPage(p *PageResponse) {
 	ps.Domain = u.Hostname()
 	ps.StatusCode = p.StatusCode
 	ps.Status = http.StatusText(p.StatusCode)
-	ps.Indexibility = Indexibility(p.StatusCode, p.Url, document)
+	ps.Indexibility = Indexibility(p.StatusCode, u.Hostname(), document)
 	ps.Title = document.Find("title").Text()
 	ps.TitleLength = len(ps.Title)
 	ps.MetaDescription = extractMetaDescription(document)
