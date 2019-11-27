@@ -59,11 +59,12 @@
   version = "v0.2.3"
 
 [[projects]]
-  digest = "1:54bdbd4217a4d8b66f06422395bd6370fa20d2bf85149636d3661a1b5053c900"
+  digest = "1:04aff0b1ed53050d75c706e1ef176c0a543236b652d7101862bdd1b1003ed553"
   name = "github.com/gocolly/colly"
   packages = [
     ".",
     "debug",
+    "extensions",
     "storage",
   ]
   pruneopts = "UT"
@@ -197,7 +198,7 @@
   input-imports = [
     "github.com/PuerkitoBio/goquery",
     "github.com/gocolly/colly",
-    "github.com/gocolly/colly/debug",
+    "github.com/gocolly/colly/extensions",
     "github.com/microcosm-cc/bluemonday",
     "github.com/olekukonko/tablewriter",
   ]

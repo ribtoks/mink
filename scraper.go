@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/extensions"
 )
 
 const (
@@ -61,7 +62,7 @@ func (s *Scraper) Scrape() error {
 
 	//c := colly.NewCollector(colly.Debugger(&debug.LogDebugger{}))
 	c := colly.NewCollector()
-	c.UserAgent = "Mozilla/5.0 (Windows NT 6.1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/41.0.2228.0 Safari/537.36"
+	extensions.RandomUserAgent(c)
 
 	c.MaxDepth = s.MaxDepth
 	c.Async = s.Async
