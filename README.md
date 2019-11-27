@@ -26,12 +26,14 @@ Usage of mink:
   -v	Write verbose logs
 ```
 
+`mink` reads URLs from `STDIN` and writes reports to `STDOUT`. Report can be written in a form of a table, comma-separated values and tab-separated values.
+
 ## Examples
 
 Crawl all pages of a single website:
 
 `echo "https://your-website.com" | mink -d 1000 -f csv > report.csv`
 
-Crawl a file with URL:
+Crawl a file with a list of URLs (1 per each line):
 
 `cat urls.txt | mink -f csv > report.csv`
