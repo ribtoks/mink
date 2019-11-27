@@ -53,20 +53,22 @@ func countWords(s string) int {
 	return nWords
 }
 
-func isRedirect(document *goquery.Document) bool {
+func isRedirect(document *goquery.Document, url string) bool {
 	hasCanonicalLink := false
 	document.Find("link").Each(func(i int, s *goquery.Selection) {
 		if rel, _ := s.Attr("rel"); rel == "canonical" {
-			hasCanonicalLink = true
+			if href, exists := s.Attr("href"); exists {
+				hasCanonicalLink = href != url
+			}
 		}
 	})
 	return hasCanonicalLink
 }
 
-func Indexibility(statusCode int, document *goquery.Document) string {
+func Indexibility(statusCode int, url string, document *goquery.Document) string {
 	indexable := statusCode/100 == 2
 	if indexable {
-		indexable = !isRedirect(document)
+		indexable = !isRedirect(document, url)
 	}
 
 	if indexable {
@@ -154,7 +156,7 @@ func (s *Scraper) processPage(p *PageResponse) {
 	ps.Domain = u.Hostname()
 	ps.StatusCode = p.StatusCode
 	ps.Status = http.StatusText(p.StatusCode)
-	ps.Indexibility = Indexibility(p.StatusCode, document)
+	ps.Indexibility = Indexibility(p.StatusCode, p.Url, document)
 	ps.Title = document.Find("title").Text()
 	ps.TitleLength = len(ps.Title)
 	ps.MetaDescription = extractMetaDescription(document)
