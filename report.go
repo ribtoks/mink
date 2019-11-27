@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/csv"
 	"os"
 	"reflect"
 	"strconv"
@@ -40,34 +41,91 @@ func structToMap(ps *PageStats) map[string]string {
 	return values
 }
 
-type TableReporter struct {
-	table *tablewriter.Table
+func mapValues(m map[string]string, fields []string) []string {
+	row := make([]string, 0, len(fields))
+	for _, k := range fields {
+		if v, ok := m[k]; ok {
+			row = append(row, v)
+		}
+	}
+	return row
 }
 
-func NewTableReporter() *TableReporter {
-	tr := &TableReporter{
-		table: tablewriter.NewWriter(os.Stdout),
-	}
+type TableReporter struct {
+	table  *tablewriter.Table
+	fields []string
+}
 
+func StatHeaders() []string {
 	statType := reflect.TypeOf(PageStats{})
 	header := make([]string, 0, statType.NumField())
 	for i := 0; i < statType.NumField(); i++ {
 		field := statType.Field(i)
 		header = append(header, field.Name)
 	}
-	tr.table.SetHeader(header)
+	return header
+}
+
+func NewTableReporter() *TableReporter {
+	tr := &TableReporter{
+		table:  tablewriter.NewWriter(os.Stdout),
+		fields: StatHeaders(),
+	}
+
+	tr.table.SetHeader(tr.fields)
+	return tr
+}
+
+func NewTSVReporter() *TableReporter {
+	tr := NewTableReporter()
+
+	tr.table.SetAutoWrapText(false)
+	tr.table.SetAutoFormatHeaders(true)
+	tr.table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	tr.table.SetAlignment(tablewriter.ALIGN_LEFT)
+	tr.table.SetCenterSeparator("")
+	tr.table.SetColumnSeparator("")
+	tr.table.SetRowSeparator("")
+	tr.table.SetHeaderLine(false)
+	tr.table.SetBorder(false)
+	tr.table.SetTablePadding("\t") // pad with tabs
+	tr.table.SetNoWhiteSpace(true)
+
 	return tr
 }
 
 func (tr *TableReporter) Append(ps *PageStats) {
 	m := structToMap(ps)
-	row := make([]string, 0, len(m))
-	for _, v := range m {
-		row = append(row, v)
-	}
+	row := mapValues(m, tr.fields)
 	tr.table.Append(row)
 }
 
-func (tr *TableReporter) Render() {
+func (tr *TableReporter) Render() error {
 	tr.table.Render()
+	return nil
+}
+
+type CSVReporter struct {
+	w      *csv.Writer
+	fields []string
+}
+
+func NewCSVReporter() *CSVReporter {
+	cr := &CSVReporter{
+		w:      csv.NewWriter(os.Stdout),
+		fields: StatHeaders(),
+	}
+	cr.w.Write(cr.fields)
+	return cr
+}
+
+func (cr *CSVReporter) Append(ps *PageStats) {
+	m := structToMap(ps)
+	row := mapValues(m, cr.fields)
+	cr.w.Write(row)
+}
+
+func (cr *CSVReporter) Render() error {
+	cr.w.Flush()
+	return nil
 }

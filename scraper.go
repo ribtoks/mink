@@ -5,8 +5,13 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gocolly/colly"
+)
+
+const (
+	TIME_START = "start"
 )
 
 type PageResponse struct {
@@ -14,6 +19,7 @@ type PageResponse struct {
 	StatusCode int
 	Data       []byte
 	Depth      int
+	Duration   time.Duration
 }
 
 type Scraper struct {
@@ -67,6 +73,10 @@ func (s *Scraper) Scrape() error {
 	c.AllowedDomains = allowedDomains
 	s.waitGroup.Add(1)
 
+	c.OnRequest(func(r *colly.Request) {
+		r.Ctx.Put(TIME_START, time.Now())
+	})
+
 	c.OnResponse(func(r *colly.Response) {
 		s.Log("Received response from", r.Request.URL.String())
 		p := &PageResponse{
@@ -75,19 +85,23 @@ func (s *Scraper) Scrape() error {
 			StatusCode: r.StatusCode,
 			Depth:      r.Request.Depth,
 		}
+		start := r.Ctx.GetAny(TIME_START)
+		if start != nil {
+			duration := time.Now().Sub(start.(time.Time))
+			p.Duration = duration
+		}
+
 		s.waitGroup.Add(1)
 		go s.processPage(p)
 	})
 
 	// Find and visit all links
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) {
-		if s.Recursively {
-			link := e.Attr("href")
-			s.Log("visiting: ", link)
-			if err := e.Request.Visit(link); err != nil {
-				if err != colly.ErrAlreadyVisited {
-					s.Log("error while linking: ", err.Error())
-				}
+		link := e.Attr("href")
+		s.Log("visiting: ", link)
+		if err := e.Request.Visit(link); err != nil {
+			if err != colly.ErrAlreadyVisited {
+				s.Log("error while linking: ", err.Error())
 			}
 		}
 	})

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/PuerkitoBio/goquery"
@@ -52,6 +53,28 @@ func countWords(s string) int {
 	return nWords
 }
 
+func isRedirect(document *goquery.Document) bool {
+	hasCanonicalLink := false
+	document.Find("link").Each(func(i int, s *goquery.Selection) {
+		if rel, _ := s.Attr("rel"); rel == "canonical" {
+			hasCanonicalLink = true
+		}
+	})
+	return hasCanonicalLink
+}
+
+func Indexibility(statusCode int, document *goquery.Document) string {
+	indexable := statusCode/100 == 2
+	if indexable {
+		indexable = !isRedirect(document)
+	}
+
+	if indexable {
+		return "Indexable"
+	}
+	return "Non-indexable"
+}
+
 func extractLinks(document *goquery.Document) map[string]int {
 	links := make(map[string]int)
 	document.Find("a").Each(func(index int, element *goquery.Selection) {
@@ -77,12 +100,12 @@ func (ps *PageStats) countLinks(hostname string, links map[string]int) {
 		if err != nil {
 			continue
 		}
-		if l.Hostname() == hostname {
-			ps.Inlinks += v
-			ps.UniqueInlinks += 1
-		} else {
+		if l.IsAbs() && l.Hostname() != hostname {
 			ps.Outlinks += v
 			ps.UniqueOutlinks += 1
+		} else {
+			ps.Inlinks += v
+			ps.UniqueInlinks += 1
 		}
 	}
 }
@@ -104,6 +127,9 @@ func extractMetaKeywords(document *goquery.Document) (string, int) {
 			keywords, _ = s.Attr("content")
 		}
 	})
+	if len(keywords) == 0 {
+		return "", 0
+	}
 	arr := strings.Split(keywords, ",")
 	return keywords, len(arr)
 }
@@ -128,16 +154,22 @@ func (s *Scraper) processPage(p *PageResponse) {
 	ps.Domain = u.Hostname()
 	ps.StatusCode = p.StatusCode
 	ps.Status = http.StatusText(p.StatusCode)
-	ps.WordCount = countWords(stripHtml(p.Data))
-	ps.Size = len(p.Data)
+	ps.Indexibility = Indexibility(p.StatusCode, document)
+	ps.Title = document.Find("title").Text()
+	ps.TitleLength = len(ps.Title)
 	ps.MetaDescription = extractMetaDescription(document)
 	ps.MetaDescriptionLength = len(ps.MetaDescription)
 	keywords, keywordsCount := extractMetaKeywords(document)
 	ps.MetaKeywords = keywords
 	ps.MetaKeywordsCount = keywordsCount
+	ps.Size = len(p.Data)
+	ps.WordCount = countWords(stripHtml(p.Data))
+	ps.CrawlDepth = p.Depth
+	ps.ResponseTimeMillis = int(p.Duration / time.Millisecond)
 
 	links := extractLinks(document)
-	ps.countLinks(u.Hostname(), links)
+	s.Log("Page links:", links)
+	ps.countLinks(strings.ToLower(u.Hostname()), links)
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
