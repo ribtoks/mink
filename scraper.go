@@ -72,7 +72,6 @@ func (s *Scraper) Scrape() error {
 		return err
 	}
 	c.AllowedDomains = allowedDomains
-	s.waitGroup.Add(1)
 
 	c.OnRequest(func(r *colly.Request) {
 		r.Ctx.Put(TIME_START, time.Now())
@@ -116,7 +115,6 @@ func (s *Scraper) Scrape() error {
 	c.Wait()
 
 	s.Log("Waiting for the page processing to finish...")
-	s.waitGroup.Done()
 	s.waitGroup.Wait()
 
 	return nil
