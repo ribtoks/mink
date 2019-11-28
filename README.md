@@ -7,7 +7,7 @@
 
 ## About
 
-`mink` is a command line SEO tool that allows you to crawl URLs and get their basic metrics including, but not limited to: HTTP status code, meta description, size of the page, number of internal and external links and others.
+`mink` is a command line SEO tool that allows you to crawl URLs and get their basic metrics including, but not limited to: HTTP status code, indexibility, emails, meta description, size of the page, number of internal and external links and others.
 
 It is a simple command-line alternative to tools like Screaming Frog SEO Spider, Netspeak Spider and other. It is useful to create plain-text or CSV report that can be used in spreadsheet software for further analysis.
 
