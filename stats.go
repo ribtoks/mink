@@ -39,6 +39,7 @@ type PageStats struct {
 	Outlinks              int
 	UniqueOutlinks        int
 	ResponseTimeMillis    int
+	Emails                string
 }
 
 func stripHtml(data []byte) string {
@@ -199,6 +200,7 @@ func (s *Scraper) processPage(p *PageResponse) {
 	ps.WordCount = countWords(stripHtml(p.Data))
 	ps.CrawlDepth = p.Depth
 	ps.ResponseTimeMillis = int(p.Duration / time.Millisecond)
+	ps.Emails = strings.Join(parseEmails(p.Data), ";")
 
 	links := extractLinks(document)
 	s.Log("Page links:", links)
