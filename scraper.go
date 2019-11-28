@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -21,9 +22,11 @@ type PageResponse struct {
 	Data       []byte
 	Depth      int
 	Duration   time.Duration
+	Headers    *http.Header
 }
 
 type Scraper struct {
+	ID          int32
 	MaxDepth    int
 	Website     string
 	Recursively bool
@@ -53,7 +56,7 @@ func prepareAllowedDomain(requestURL string) ([]string, error) {
 
 func (s *Scraper) Log(v ...interface{}) {
 	if s.PrintLogs {
-		log.Println(v)
+		log.Print("Scraper ", "#", s.ID, " ", v)
 	}
 }
 
@@ -84,6 +87,7 @@ func (s *Scraper) Scrape() error {
 			Data:       r.Body,
 			StatusCode: r.StatusCode,
 			Depth:      r.Request.Depth,
+			Headers:    r.Headers,
 		}
 		start := r.Ctx.GetAny(TIME_START)
 		if start != nil {

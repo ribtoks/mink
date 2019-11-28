@@ -12,12 +12,19 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 )
 
+const (
+	INDEXABLE     = "Indexable"
+	NON_INDEXABLE = "Non-Indexable"
+	NOINDEX       = "noindex"
+)
+
 type PageStats struct {
 	Url                   string
 	Domain                string
 	StatusCode            int
 	Status                string
 	Indexibility          string
+	ContentType           string
 	Title                 string
 	TitleLength           int
 	MetaDescription       string
@@ -72,25 +79,32 @@ func isNoIndex(document *goquery.Document) bool {
 	document.Find("meta").Each(func(i int, s *goquery.Selection) {
 		if name, _ := s.Attr("name"); name == "robots" {
 			if content, exists := s.Attr("content"); exists {
-				hasNoIndex = strings.Contains(content, "noindex") ||
-					strings.Contains(content, "follow") ||
-					strings.Contains(content, "disallow")
+				hasNoIndex = strings.Contains(content, NOINDEX)
 			}
 		}
 	})
 	return hasNoIndex
 }
 
-func Indexibility(statusCode int, hostname string, document *goquery.Document) string {
-	indexable := statusCode/100 == 2
-	if indexable {
-		indexable = !isNoIndex(document) && !isRedirect(hostname, document)
+func Indexibility(p *PageResponse, hostname string, document *goquery.Document) string {
+	if p.StatusCode/100 != 2 {
+		return NON_INDEXABLE
 	}
 
-	if indexable {
-		return "Indexable"
+	robots := p.Headers.Get("X-Robots-Tag")
+	if strings.Contains(robots, NOINDEX) {
+		return NON_INDEXABLE
 	}
-	return "Non-indexable"
+
+	if isNoIndex(document) {
+		return NON_INDEXABLE
+	}
+
+	if isRedirect(hostname, document) {
+		return NON_INDEXABLE
+	}
+
+	return INDEXABLE
 }
 
 func extractLinks(document *goquery.Document) map[string]int {
@@ -131,7 +145,7 @@ func (ps *PageStats) countLinks(hostname string, links map[string]int) {
 func extractMetaDescription(document *goquery.Document) string {
 	description := ""
 	document.Find("meta").Each(func(i int, s *goquery.Selection) {
-		if name, _ := s.Attr("name"); name == "description" {
+		if name, _ := s.Attr("name"); strings.ToLower(name) == "description" {
 			description, _ = s.Attr("content")
 		}
 	})
@@ -141,7 +155,7 @@ func extractMetaDescription(document *goquery.Document) string {
 func extractMetaKeywords(document *goquery.Document) (string, int) {
 	keywords := ""
 	document.Find("meta").Each(func(i int, s *goquery.Selection) {
-		if name, _ := s.Attr("name"); name == "keywords" {
+		if name, _ := s.Attr("name"); strings.ToLower(name) == "keywords" {
 			keywords, _ = s.Attr("content")
 		}
 	})
@@ -153,7 +167,7 @@ func extractMetaKeywords(document *goquery.Document) (string, int) {
 }
 
 func (s *Scraper) processPage(p *PageResponse) {
-	s.Log("Processing page", p.Url)
+	s.Log("Processing page", p.Url, len(p.Data), "bytes")
 	defer s.waitGroup.Done()
 	u, err := url.ParseRequestURI(p.Url)
 	if err != nil {
@@ -172,7 +186,8 @@ func (s *Scraper) processPage(p *PageResponse) {
 	ps.Domain = u.Hostname()
 	ps.StatusCode = p.StatusCode
 	ps.Status = http.StatusText(p.StatusCode)
-	ps.Indexibility = Indexibility(p.StatusCode, u.Hostname(), document)
+	ps.Indexibility = Indexibility(p, u.Hostname(), document)
+	ps.ContentType = p.Headers.Get("Content-Type")
 	ps.Title = document.Find("title").Text()
 	ps.TitleLength = len(ps.Title)
 	ps.MetaDescription = extractMetaDescription(document)

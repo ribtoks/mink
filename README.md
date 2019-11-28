@@ -37,3 +37,7 @@ Crawl all pages of a single website:
 Crawl a file with a list of URLs (1 per each line):
 
 `cat urls.txt | mink -f csv > report.csv`
+
+## Limitations
+
+Currently mink does not handle javascript-based pages well.
