@@ -49,14 +49,21 @@ func main() {
 		}
 	}()
 
+	visited := make(map[string]bool)
+
 	for scanner.Scan() {
+		next := scanner.Text()
+		if _, ok := visited[next]; ok {
+			continue
+		}
+		visited[next] = true
 		wg.Add(1)
 		sem <- struct{}{}
 		go func(url string, rc chan *PageStats) {
 			defer wg.Done()
 			processUrl(url, rc, &wg)
 			<-sem
-		}(scanner.Text(), reports)
+		}(next, reports)
 	}
 	wg.Wait()
 	close(reports)
