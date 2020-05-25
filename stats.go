@@ -67,7 +67,7 @@ func isRedirect(hostname string, document *goquery.Document) bool {
 		if rel, _ := s.Attr("rel"); rel == "canonical" {
 			if href, exists := s.Attr("href"); exists {
 				if u, err := url.ParseRequestURI(href); err == nil {
-					hasCanonicalLink = hostname != u.Hostname()
+					hasCanonicalLink = len(u.Hostname()) > 0 && hostname != u.Hostname()
 				}
 			}
 		}
